@@ -1,12 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from typing import List, Dict
 from pydantic import BaseModel
 import random
 import math
 import datetime
+import os
+
+# Correct imports assuming `backend` is the package
+from . import buses, voice  # use relative imports inside a package
 
 app = FastAPI()
+app.include_router(buses.router)
+app.include_router(voice.router)
 
 # Allow frontend
 app.add_middleware(
@@ -16,6 +24,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# -------------------------------
+# Root & favicon
+# -------------------------------
+@app.get("/")
+def read_root():
+    return {"message": "FastAPI is running!"}
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join("static", "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    return {"detail": "favicon not found"}
+
+# Mount static folder
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # -------------------------------
 # Models
@@ -40,7 +65,6 @@ class Stop(BaseModel):
     scheduled_time: float  # minutes from start
 
 
-# Complaints & SOS models
 class Complaint(BaseModel):
     bus_id: int
     message: str
@@ -53,9 +77,8 @@ class SOSAlert(BaseModel):
     emergency: str
     timestamp: str
 
-
 # -------------------------------
-# Routes Data (fixed to Chennai)
+# Routes Data
 # -------------------------------
 routes: Dict[int, List[Stop]] = {
     1: [
@@ -80,7 +103,7 @@ routes: Dict[int, List[Stop]] = {
 }
 
 # -------------------------------
-# Predefined buses (start at stops)
+# Predefined buses
 # -------------------------------
 buses: List[Bus] = [
     Bus(bus_id=1, route_id=1, lat=13.0418, lon=80.1762, speed_kmph=40, status="On Route", overcrowded=False),
@@ -94,14 +117,12 @@ buses: List[Bus] = [
 complaints: List[Complaint] = []
 sos_alerts: List[SOSAlert] = []
 
-# Landmark alias mapping (local language / friendly names)
 landmarks = {
     "Koyambedu": "CMBT",
     "Vadapalani": "Forum Vijaya Mall",
     "Mylapore": "Kapaleeshwarar Temple",
     "Triplicane": "Parthasarathy Temple",
 }
-
 
 # -------------------------------
 # Helpers
@@ -114,6 +135,12 @@ def distance(lat1, lon1, lat2, lon2):
     dlambda = math.radians(lon2 - lon1)
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+# -------------------------------
+# Routes for updating & fetching buses
+# -------------------------------
+# ... keep the rest of your APIs unchanged
+
 
 
 # -------------------------------
